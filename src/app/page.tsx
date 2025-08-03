@@ -4,10 +4,25 @@ import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Icosahedron, Torus, Sphere, Dodecahedron, Cone, Cylinder, TorusKnot, Tetrahedron, Box, Octahedron, Capsule } from '@react-three/drei';
-import { Color } from 'three';
+import { Color, Group } from 'three';
 
-// Helper component to manage the background color safely
-function SceneBackground({ color }) {
+// --- Type Definitions ---
+interface Visual {
+  shape: string;
+  position: [number, number, number];
+  shapeColor: string;
+  wireframe: boolean;
+}
+
+interface LineData {
+  line: string;
+  sceneBgColor: string;
+  visuals: Visual[];
+}
+
+
+// --- Helper component to manage the background color safely ---
+function SceneBackground({ color }: { color: string | undefined }) {
   const { scene } = useThree();
   useEffect(() => {
     if (color) {
@@ -18,8 +33,8 @@ function SceneBackground({ color }) {
 }
 
 // --- Simplified 3D Shape Component (No Physics) ---
-function GenerativeShape({ visual }) {
-  const meshRef = useRef<any>();
+function GenerativeShape({ visual }: { visual: Visual }) {
+  const meshRef = useRef<Group>(null);
 
   // Simple rotation animation
   useFrame((_, delta) => {
@@ -55,14 +70,15 @@ function GenerativeShape({ visual }) {
 export default function SonnetPage() {
   const [gameState, setGameState] = useState('input');
   const [theme, setTheme] = useState('');
-  const [poemLines, setPoemLines] = useState([]);
+  const [apiKey, setApiKey] = useState('');
+  const [poemLines, setPoemLines] = useState<LineData[]>([]);
 
-  const fetchLine = useCallback(async (currentTheme: string, history: string[]) => {
+  const fetchLine = useCallback(async (currentTheme: string, history: string[], currentApiKey: string) => {
     try {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ theme: currentTheme, lineNumber: history.length, history }),
+        body: JSON.stringify({ theme: currentTheme, lineNumber: history.length, history, apiKey: currentApiKey }),
       });
       if (!response.ok) throw new Error('API request failed');
       const data = await response.json();
@@ -77,20 +93,20 @@ export default function SonnetPage() {
     if (gameState === 'generating' && poemLines.length > 0 && poemLines.length < 4) {
       const timer = setTimeout(() => {
         const history = poemLines.map(p => p.line);
-        fetchLine(theme, history);
+        fetchLine(theme, history, apiKey);
       }, 7000);
       return () => clearTimeout(timer);
     } else if (poemLines.length >= 4) {
       const timer = setTimeout(() => setGameState('finished'), 7000);
       return () => clearTimeout(timer);
     }
-  }, [poemLines, gameState, theme, fetchLine]);
+  }, [poemLines, gameState, theme, apiKey, fetchLine]);
 
   const handleStart = () => {
-    if (theme.trim()) {
+    if (theme.trim() && apiKey.trim()) {
       setPoemLines([]);
       setGameState('generating');
-      fetchLine(theme, []);
+      fetchLine(theme, [], apiKey);
     }
   };
 
@@ -133,14 +149,23 @@ export default function SonnetPage() {
             >
               <div className="text-center">
                 <h1 className="text-white text-5xl font-serif mb-8">Symbiotic Sonnet</h1>
-                <input
-                  type="text"
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleStart()}
-                  className="bg-transparent border-b-2 border-gray-500 text-white text-2xl text-center focus:outline-none focus:border-white"
-                  placeholder="Enter a theme"
-                />
+                <div className="space-y-6">
+                  <input
+                    type="text"
+                    value={theme}
+                    onChange={(e) => setTheme(e.target.value)}
+                    className="bg-transparent border-b-2 border-gray-500 text-white text-2xl text-center focus:outline-none focus:border-white w-full"
+                    placeholder="Enter a theme"
+                  />
+                  <input
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleStart()}
+                    className="bg-transparent border-b-2 border-gray-500 text-white text-2xl text-center focus:outline-none focus:border-white w-full"
+                    placeholder="Enter API Key"
+                  />
+                </div>
               </div>
             </motion.div>
           )}

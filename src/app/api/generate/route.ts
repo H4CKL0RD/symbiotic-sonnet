@@ -1,40 +1,34 @@
 import { NextResponse } from 'next/server';
 
 // This function constructs the prompt and calls the Cerebras API.
-async function getAIGeneration(theme: string, lineNumber: number, history: string[]) {
-  // Use environment variables for API credentials
-  const apiKey = process.env.CEREBRAS_API_KEY;
-  const apiUrl = process.env.CEREBRAS_API_ENDPOINT + "/chat/completions";
+async function getAIGeneration(theme: string, lineNumber: number, history: string[], apiKey: string) {
+  // The endpoint is now hardcoded.
+  const apiUrl = "https://api.cerebras.ai/v1/chat/completions";
 
-  const prompt = `You are a poet and a visual artist creating an abstract 3D physics simulation. Your task is to generate one line of a four-line poem about the theme "${theme}". This is line number ${lineNumber + 1}. The previous lines were: "${history.join(' ')}".
+  const prompt = `You are a poet and a visual artist creating an abstract 3D experience. Your task is to generate one line of a four-line poem about the theme "${theme}". This is line number ${lineNumber + 1}. The previous lines were: "${history.join(' ')}".
 
-You must also generate a corresponding JSON object. The JSON must strictly follow this format: {"line": "your poetic line", "sceneBgColor": "#hex", "visuals": [ { ...shape_object_1... }, ... ]}.
+  You must also generate a corresponding JSON object. The JSON must strictly follow this format: {"line": "your poetic line", "sceneBgColor": "#hex", "visuals": [ { ...shape_object_1... }, ... ]}.
 
-- "sceneBgColor": A single hex color for the entire scene's background, fitting the mood.
-- "visuals": An array of 2 to 7 shape objects. Each shape object must have:
-  - "shape": Choose from: "icosahedron", "torus", "sphere", "dodecahedron", "cone", "cylinder", "torusKnot", "tetrahedron", "box", "octahedron", "capsule".
-  - "position": An [x, y, z] coordinate array for the shape's starting position (x and z between -5 and 5, y between -2 and 2).
-  - "shapeColor": A hex color for the shape's material.
-  - "wireframe": A boolean (true or false).
-  - "mass": A number for mass (between 1 and 5).
-  - "restitution": A number for bounciness (between 0.5 and 1.2).
-  - "initialImpulse": An [x, y, z] array for a starting push (values between -10 and 10).
+  - "sceneBgColor": A single hex color for the entire scene's background, fitting the mood.
+  - "visuals": An array of 5 to 7 shape objects. Each shape object must have:
+    - "shape": Choose from: "icosahedron", "torus", "sphere", "dodecahedron", "cone", "cylinder", "torusKnot", "tetrahedron", "box", "octahedron", "capsule".
+    - "position": An [x, y, z] coordinate array for the shape's starting position (x/z between -5 and 5, y between -2 and 2).
+    - "shapeColor": A hex color for the shape's material.
+    - "wireframe": A boolean (true or false).
 
-Your final output must be ONLY the raw JSON object, without any markdown formatting, backticks, or other explanatory text.`;
+  Your final output must be ONLY the raw JSON object, without any markdown formatting, backticks, or other explanatory text.`;
 
-  // IMPORTANT: The payload structure will likely need to be changed to match the Cerebras API.
-  // This is a generic example.
+  // The payload for the Cerebras chat completions endpoint.
   const payload = {
-    model: "llama3.1-8b",
+    model: "llama-3.1-8b", // Example model, you can change this
     messages: [
       {
         role: "user",
         content: prompt
       }
     ],
-    max_tokens: 512,
-    temperature: 0.7,
-    // You might need other parameters like max_tokens, temperature, etc.
+    temperature: 0.8,
+    max_tokens: 1024
   };
 
   try {
@@ -42,7 +36,7 @@ Your final output must be ONLY the raw JSON object, without any markdown formatt
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}` // This is a common authorization pattern; adjust if needed.
+        'Authorization': `Bearer ${apiKey}` // Use the key provided by the user.
       },
       body: JSON.stringify(payload)
     });
@@ -53,31 +47,47 @@ Your final output must be ONLY the raw JSON object, without any markdown formatt
     }
 
     const result = await response.json();
+    
+    // Extract the content from the response.
+    const rawText = result.choices[0].message.content;
 
-    // Check if the response contains the expected structure
-    if (!result || !result.choices || !result.choices[0] || !result.choices[0].message) {
-      throw new Error('Unexpected API response structure');
+    // Find and extract the JSON object from the raw text.
+    const jsonStart = rawText.indexOf('{');
+    const jsonEnd = rawText.lastIndexOf('}') + 1;
+    
+    if (jsonStart === -1 || jsonEnd === 0) {
+        throw new Error("No valid JSON object found in the AI response.");
     }
 
-    // Parse and return the JSON response from the AI
-    const jsonResponse = JSON.parse(result.choices[0].message.content);
-    return jsonResponse;
+    const jsonString = rawText.substring(jsonStart, jsonEnd);
+    
+    return JSON.parse(jsonString);
+
   } catch (error) {
-    console.error("Error calling AI API:", error);
+    console.error("Error calling or parsing AI API:", error);
     // Fallback to a mock response on error
-    return { line: "An error occurred in the digital ether.", visuals: [{ shape: "icosahedron", position: [0, 0, 0], shapeColor: "#FFFFFF", wireframe: true, rotationSpeed: 0.5, focusPoint: [0, 0, 0] }] };
+    return { 
+      line: "An error occurred. Please check your API key and the console.", 
+      sceneBgColor: "#8B0000",
+      visuals: [{
+        shape: "box",
+        position: [0, 0, 0],
+        shapeColor: "#FFFFFF",
+        wireframe: true,
+      }]
+    };
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const { theme, lineNumber, history } = await request.json();
+    const { theme, lineNumber, history, apiKey } = await request.json();
 
-    if (typeof theme !== 'string' || typeof lineNumber !== 'number' || !Array.isArray(history)) {
+    if (typeof theme !== 'string' || typeof lineNumber !== 'number' || !Array.isArray(history) || typeof apiKey !== 'string') {
       return NextResponse.json({ error: 'Invalid input' }, { status: 400 });
     }
 
-    const generation = await getAIGeneration(theme, lineNumber, history);
+    const generation = await getAIGeneration(theme, lineNumber, history, apiKey);
     return NextResponse.json(generation);
 
   } catch (error) {

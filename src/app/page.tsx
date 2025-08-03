@@ -20,8 +20,7 @@ interface LineData {
   visuals: Visual[];
 }
 
-
-// --- Helper component to manage the background color safely ---
+// Helper component to manage the background color safely
 function SceneBackground({ color }: { color: string | undefined }) {
   const { scene } = useThree();
   useEffect(() => {
@@ -149,7 +148,7 @@ export default function SonnetPage() {
             >
               <div className="text-center">
                 <h1 className="text-white text-5xl font-serif mb-8">Symbiotic Sonnet</h1>
-                <div className="space-y-6">
+                <div className="space-y-6 max-w-sm mx-auto">
                   <input
                     type="text"
                     value={theme}
@@ -157,14 +156,24 @@ export default function SonnetPage() {
                     className="bg-transparent border-b-2 border-gray-500 text-white text-2xl text-center focus:outline-none focus:border-white w-full"
                     placeholder="Enter a theme"
                   />
-                  <input
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleStart()}
-                    className="bg-transparent border-b-2 border-gray-500 text-white text-2xl text-center focus:outline-none focus:border-white w-full"
-                    placeholder="Enter API Key"
-                  />
+                  <div>
+                    <input
+                      type="password"
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleStart()}
+                      className="bg-transparent border-b-2 border-gray-500 text-white text-2xl text-center focus:outline-none focus:border-white w-full"
+                      placeholder="Enter Cerebras API Key"
+                    />
+                    <a 
+                      href="https://inference-docs.cerebras.ai/quickstart" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-400 hover:text-white transition-colors mt-2 inline-block"
+                    >
+                      (Need a key?)
+                    </a>
+                  </div>
                 </div>
               </div>
             </motion.div>
